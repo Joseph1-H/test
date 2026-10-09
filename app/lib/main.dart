@@ -44,6 +44,8 @@ class ChatScreen extends StatefulWidget {
 
 class _ChatScreenState extends State<ChatScreen> {
   static const _defaultServer = 'http://raspberrypi.local:8000';
+  static const _systemPrompt =
+      'You are JJ, a helpful, friendly AI assistant. Answer clearly and concisely.';
 
   final _messages = <ChatMessage>[];
   final _input = TextEditingController();
@@ -77,19 +79,28 @@ class _ChatScreenState extends State<ChatScreen> {
     _scrollToEnd();
 
     try {
+      // OpenAI-style API: served by llama.cpp on the Pi Zero and by server/app.py.
       final res = await http
           .post(
-            Uri.parse('$_serverUrl/chat'),
-            headers: {'Content-Type': 'application/json'},
+            Uri.parse('$_serverUrl/v1/chat/completions'),
+            headers: {
+              'Content-Type': 'application/json',
+              if (_apiKey.isNotEmpty) 'Authorization': 'Bearer $_apiKey',
+            },
             body: jsonEncode({
-              'messages': _messages.map((m) => m.toJson()).toList(),
-              if (_apiKey.isNotEmpty) 'api_key': _apiKey,
+              'messages': [
+                {'role': 'system', 'content': _systemPrompt},
+                ..._messages.map((m) => m.toJson()),
+              ],
+              'max_tokens': 256,
+              'temperature': 0.7,
             }),
           )
-          .timeout(const Duration(minutes: 3));
+          .timeout(const Duration(minutes: 5)); // a Pi Zero can take a while
 
       if (res.statusCode == 200) {
-        final reply = jsonDecode(utf8.decode(res.bodyBytes))['reply'] as String;
+        final body = jsonDecode(utf8.decode(res.bodyBytes));
+        final reply = (body['choices'][0]['message']['content'] as String).trim();
         setState(() => _messages.add(ChatMessage('assistant', reply)));
       } else {
         _showError('Server error ${res.statusCode}: ${res.body}');

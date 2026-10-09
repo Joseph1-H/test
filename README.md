@@ -11,6 +11,8 @@ Your own AI assistant, powered by an open-source Hugging Face model and served f
 
 - `server/` – Python server that loads the model and exposes a `/chat` API.
 - `app/` – Flutter chat app (iOS, Android, web) that talks to the server.
+- `pi-zero/` – one-command setup to run JJ on a Raspberry Pi Zero 2 W with llama.cpp.
+- `training/` – dataset and Colab notebook to fine-tune your own JJ model.
 
 ## Try it in your browser
 
@@ -20,7 +22,7 @@ Your own AI assistant, powered by an open-source Hugging Face model and served f
 
 Default: [`Qwen/Qwen2.5-0.5B-Instruct`](https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct) (Apache 2.0). It's small enough to run on a Raspberry Pi CPU. Switch models with the `JJ_MODEL_ID` environment variable, e.g. `Qwen/Qwen2.5-1.5B-Instruct` for better answers if your Pi has 8 GB RAM.
 
-**Raspberry Pi Zero:** with only 512 MB RAM, the Python server won't fit. Train a small JJ (see [`training/`](training/)) and run its GGUF file with `llama.cpp`'s `llama-server` instead.
+**Raspberry Pi Zero:** with only 512 MB RAM, the Python server won't fit. Use [`pi-zero/`](pi-zero/) instead: it runs JJ with llama.cpp.
 
 ## 1. Run the server
 

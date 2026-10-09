@@ -8,7 +8,7 @@ import os
 import threading
 
 import torch
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from transformers import AutoModelForCausalLM, AutoTokenizer
@@ -63,30 +63,61 @@ def health():
     return {"status": "ok", "model": MODEL_ID}
 
 
+def generate_reply(messages: list[dict], max_new_tokens: int | None, temperature: float) -> str:
+    """messages: user/assistant turns. Adds the system prompt unless one is already first."""
+    turns = [m for m in messages if m["role"] in ("user", "assistant")][-20:]
+    system = next((m["content"] for m in messages if m["role"] == "system"), SYSTEM_PROMPT)
+    conversation = [{"role": "system", "content": system}] + turns
+
+    inputs = tokenizer.apply_chat_template(
+        conversation, add_generation_prompt=True, return_tensors="pt"
+    )
+    max_new = min(max_new_tokens or MAX_NEW_TOKENS, 1024)
+
+    with generate_lock, torch.no_grad():
+        output = model.generate(
+            inputs,
+            max_new_tokens=max_new,
+            do_sample=temperature > 0,
+            temperature=max(temperature, 0.01),
+            top_p=0.9,
+            pad_token_id=tokenizer.eos_token_id,
+        )
+    return tokenizer.decode(output[0][inputs.shape[-1]:], skip_special_tokens=True).strip()
+
+
 @app.post("/chat", response_model=ChatResponse)
 def chat(req: ChatRequest):
     if API_KEY and req.api_key != API_KEY:
         raise HTTPException(status_code=401, detail="Invalid API key")
     if not req.messages:
         raise HTTPException(status_code=400, detail="messages is empty")
+    reply = generate_reply([m.model_dump() for m in req.messages], req.max_new_tokens, req.temperature)
+    return ChatResponse(reply=reply, model=MODEL_ID)
 
-    conversation = [{"role": "system", "content": SYSTEM_PROMPT}]
-    conversation += [m.model_dump() for m in req.messages[-20:]]  # keep context small
 
-    inputs = tokenizer.apply_chat_template(
-        conversation, add_generation_prompt=True, return_tensors="pt"
-    )
-    max_new = min(req.max_new_tokens or MAX_NEW_TOKENS, 1024)
+# ---- OpenAI-compatible endpoint ---------------------------------------------------
+# Same format as llama.cpp's llama-server (used on the Pi Zero), so the app works with both.
+class OAIMessage(BaseModel):
+    role: str = Field(pattern="^(system|user|assistant)$")
+    content: str
 
-    with generate_lock, torch.no_grad():
-        output = model.generate(
-            inputs,
-            max_new_tokens=max_new,
-            do_sample=req.temperature > 0,
-            temperature=max(req.temperature, 0.01),
-            top_p=0.9,
-            pad_token_id=tokenizer.eos_token_id,
-        )
 
-    reply = tokenizer.decode(output[0][inputs.shape[-1]:], skip_special_tokens=True)
-    return ChatResponse(reply=reply.strip(), model=MODEL_ID)
+class OAIRequest(BaseModel):
+    messages: list[OAIMessage]
+    max_tokens: int | None = None
+    temperature: float = 0.7
+
+
+@app.post("/v1/chat/completions")
+def chat_completions(req: OAIRequest, authorization: str | None = Header(default=None)):
+    if API_KEY and authorization != f"Bearer {API_KEY}":
+        raise HTTPException(status_code=401, detail="Invalid API key")
+    if not any(m.role == "user" for m in req.messages):
+        raise HTTPException(status_code=400, detail="messages has no user message")
+    reply = generate_reply([m.model_dump() for m in req.messages], req.max_tokens, req.temperature)
+    return {
+        "object": "chat.completion",
+        "model": MODEL_ID,
+        "choices": [{"index": 0, "message": {"role": "assistant", "content": reply}, "finish_reason": "stop"}],
+    }
