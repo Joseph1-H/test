@@ -14,7 +14,8 @@ async function load(modelId) {
 
   const files = {};
   generator = await pipeline("text-generation", modelId, {
-    dtype: "q4",
+    // q4f16 halves memory on GPU; plain q4 is the safe choice on CPU.
+    dtype: device === "webgpu" ? "q4f16" : "q4",
     device,
     progress_callback: (p) => {
       if (p.status === "progress" && p.total) {

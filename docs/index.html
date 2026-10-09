@@ -103,8 +103,9 @@ textarea:focus, select:focus, button:focus-visible { outline: 2px solid var(--ac
 <header>
   <div class="brand">JJ<span>.</span>AI</div>
   <select id="model" aria-label="Model">
-    <option value="onnx-community/Qwen2.5-0.5B-Instruct">Qwen2.5 0.5B · same as server (~500 MB)</option>
-    <option value="HuggingFaceTB/SmolLM2-360M-Instruct">SmolLM2 360M · lighter (~250 MB)</option>
+    <option value="HuggingFaceTB/SmolLM2-135M-Instruct">SmolLM2 135M · tiny, works on phones</option>
+    <option value="HuggingFaceTB/SmolLM2-360M-Instruct">SmolLM2 360M · smarter, may crash phones</option>
+    <option value="onnx-community/Qwen2.5-0.5B-Instruct">Qwen2.5 0.5B · same as server, computers only</option>
   </select>
   <button class="ghost" id="new" type="button">New chat</button>
 </header>
@@ -131,9 +132,11 @@ const $ = (id) => document.getElementById(id);
 const chat = $("chat"), input = $("input"), send = $("send"), model = $("model");
 let history = [], busy = false, current = null;
 
+// Phones get the tiny model by default; a choice saved under the new key wins.
+const isPhone = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 let saved = null;
-try { saved = localStorage.getItem("jj-model"); } catch {}
-if (saved) model.value = saved;
+try { saved = localStorage.getItem("jj-model-v2"); } catch {}
+model.value = saved || (isPhone ? "HuggingFaceTB/SmolLM2-135M-Instruct" : "onnx-community/Qwen2.5-0.5B-Instruct");
 
 const worker = new Worker("worker.js", { type: "module" });
 worker.onmessage = ({ data }) => {
@@ -198,7 +201,7 @@ input.addEventListener("input", () => {
 });
 document.querySelectorAll(".chips button").forEach((b) => b.addEventListener("click", () => ask(b.textContent)));
 model.addEventListener("change", () => {
-  try { localStorage.setItem("jj-model", model.value); } catch {}
+  try { localStorage.setItem("jj-model-v2", model.value); } catch {}
   setStatus("Model changed. It loads on your next message.");
 });
 $("new").addEventListener("click", () => {
