@@ -20,6 +20,8 @@ Your own AI assistant, powered by an open-source Hugging Face model and served f
 
 Default: [`Qwen/Qwen2.5-0.5B-Instruct`](https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct) (Apache 2.0). It's small enough to run on a Raspberry Pi CPU. Switch models with the `JJ_MODEL_ID` environment variable, e.g. `Qwen/Qwen2.5-1.5B-Instruct` for better answers if your Pi has 8 GB RAM.
 
+**Raspberry Pi Zero:** with only 512 MB RAM, the Python server won't fit. Train a small JJ (see [`training/`](training/)) and run its GGUF file with `llama.cpp`'s `llama-server` instead.
+
 ## 1. Run the server
 
 On any computer first, then on the Pi (Pi 5 or Pi 4 with 4–8 GB RAM, 64-bit Raspberry Pi OS):
