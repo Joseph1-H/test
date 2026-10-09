@@ -12,6 +12,10 @@ Your own AI assistant, powered by an open-source Hugging Face model and served f
 - `server/` – Python server that loads the model and exposes a `/chat` API.
 - `app/` – Flutter chat app (iOS, Android, web) that talks to the server.
 
+## Try it in your browser
+
+`docs/` is a web version that runs the model directly in the browser with [Transformers.js](https://huggingface.co/docs/transformers.js) (no server needed). Publish it with GitHub Pages: **Settings → Pages → Deploy from a branch → `main` / `/docs`**. It will be live at `https://joseph1-h.github.io/<repo-name>/`.
+
 ## Model
 
 Default: [`Qwen/Qwen2.5-0.5B-Instruct`](https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct) (Apache 2.0). It's small enough to run on a Raspberry Pi CPU. Switch models with the `JJ_MODEL_ID` environment variable, e.g. `Qwen/Qwen2.5-1.5B-Instruct` for better answers if your Pi has 8 GB RAM.

@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>JJ AI</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=IBM+Plex+Sans:wght@400;500&family=IBM+Plex+Mono:wght@400&display=swap">
+<style>
+/* Layout: one-screen chat — slim header, scrolling transcript, docked composer */
+:root {
+  --bg: #f3f5f4;
+  --surface: #ffffff;
+  --fg: #16201d;
+  --muted: #5d6b67;
+  --line: #d9e0dd;
+  --accent: #0f7a5c;
+  --accent-fg: #ffffff;
+  --bubble-user: #0f7a5c;
+  --bubble-ai: #e6ecea;
+  --display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --body: "IBM Plex Sans", system-ui, -apple-system, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0e1412;
+    --surface: #161e1b;
+    --fg: #e4ece9;
+    --muted: #8fa09a;
+    --line: #26322e;
+    --accent: #3cc497;
+    --accent-fg: #06110d;
+    --bubble-user: #1f6b53;
+    --bubble-ai: #1c2622;
+    color-scheme: dark;
+  }
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+body {
+  background: var(--bg); color: var(--fg);
+  font: 16px/1.5 var(--body);
+  display: flex; flex-direction: column;
+  padding-top: env(safe-area-inset-top, 0px);
+}
+header {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  padding: 12px 16px; border-bottom: 1px solid var(--line); background: var(--surface);
+}
+.brand { font: 800 1.35rem/1 var(--display); letter-spacing: -0.02em; }
+.brand span { color: var(--accent); }
+select {
+  margin-left: auto; font: 500 0.85rem var(--body); color: var(--fg);
+  background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; max-width: 100%;
+}
+button { font: inherit; cursor: pointer; }
+.ghost {
+  background: none; border: 1px solid var(--line); color: var(--fg);
+  border-radius: 8px; padding: 6px 10px; font-size: 0.85rem;
+}
+.status {
+  font: 0.75rem/1.4 var(--mono); color: var(--muted);
+  padding: 8px 16px; border-bottom: 1px solid var(--line);
+  display: flex; gap: 10px; align-items: center;
+}
+.bar { flex: 1; height: 4px; background: var(--line); border-radius: 2px; overflow: hidden; min-width: 60px; }
+.bar i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .2s; }
+main { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 10px; }
+.empty { margin: auto; text-align: center; max-width: 34ch; color: var(--muted); }
+.empty h1 { font: 800 clamp(2rem, 9vw, 3rem)/1 var(--display); color: var(--fg); margin: 0 0 10px; letter-spacing: -0.03em; text-wrap: balance; }
+.empty p { margin: 0 0 16px; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+.chips button {
+  background: var(--surface); border: 1px solid var(--line); color: var(--fg);
+  border-radius: 999px; padding: 6px 12px; font-size: 0.9rem;
+}
+.msg { max-width: 82%; padding: 10px 14px; border-radius: 16px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.user { align-self: flex-end; background: var(--bubble-user); color: #fff; border-bottom-right-radius: 4px; }
+.ai { align-self: flex-start; background: var(--bubble-ai); border-bottom-left-radius: 4px; }
+.ai.thinking::after { content: "▍"; animation: blink 1s steps(2) infinite; color: var(--accent); }
+@keyframes blink { 50% { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .ai.thinking::after { animation: none; } }
+form {
+  display: flex; gap: 8px; padding: 10px 16px calc(10px + env(safe-area-inset-bottom, 0px));
+  border-top: 1px solid var(--line); background: var(--surface);
+}
+textarea {
+  flex: 1; min-width: 0; resize: none; font: inherit; color: var(--fg); background: var(--bg);
+  border: 1px solid var(--line); border-radius: 20px; padding: 9px 14px; max-height: 140px;
+}
+textarea:focus, select:focus, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.send {
+  background: var(--accent); color: var(--accent-fg); border: 0; border-radius: 50%;
+  width: 42px; height: 42px; flex: none; font-size: 1.2rem; font-weight: 700;
+}
+.send:disabled { opacity: .4; cursor: default; }
+.err { color: #c0392b; }
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">JJ<span>.</span>AI</div>
+  <select id="model" aria-label="Model">
+    <option value="onnx-community/Qwen2.5-0.5B-Instruct">Qwen2.5 0.5B · same as server (~500 MB)</option>
+    <option value="HuggingFaceTB/SmolLM2-360M-Instruct">SmolLM2 360M · lighter (~250 MB)</option>
+  </select>
+  <button class="ghost" id="new" type="button">New chat</button>
+</header>
+<div class="status"><span id="statusText">Model loads on your first message. It's saved after that.</span><div class="bar" hidden id="bar"><i id="barFill"></i></div></div>
+<main id="chat">
+  <div class="empty" id="empty">
+    <h1>Hi, I'm JJ.</h1>
+    <p>An open-source Hugging Face model running entirely in your browser. Nothing you type leaves this device.</p>
+    <div class="chips">
+      <button type="button">What can you do?</button>
+      <button type="button">Give me 3 names for a Raspberry Pi server</button>
+      <button type="button">Explain AI in one sentence</button>
+    </div>
+  </div>
+</main>
+<form id="form">
+  <textarea id="input" rows="1" placeholder="Message JJ…" aria-label="Message"></textarea>
+  <button class="send" id="send" type="submit" aria-label="Send">↑</button>
+</form>
+
+<script>
+const SYSTEM = "You are JJ, a helpful, friendly AI assistant. Answer clearly and concisely.";
+const $ = (id) => document.getElementById(id);
+const chat = $("chat"), input = $("input"), send = $("send"), model = $("model");
+let history = [], busy = false, current = null;
+
+let saved = null;
+try { saved = localStorage.getItem("jj-model"); } catch {}
+if (saved) model.value = saved;
+
+const worker = new Worker("worker.js", { type: "module" });
+worker.onmessage = ({ data }) => {
+  if (data.type === "status") setStatus(data.text);
+  else if (data.type === "progress") {
+    $("bar").hidden = false;
+    $("barFill").style.width = (100 * data.loaded / data.total).toFixed(1) + "%";
+    setStatus(`Downloading model… ${(data.loaded / 1e6).toFixed(0)} / ${(data.total / 1e6).toFixed(0)} MB`);
+  } else if (data.type === "ready") {
+    $("bar").hidden = true;
+    setStatus(`Ready · running on your ${data.device === "webgpu" ? "GPU" : "CPU"}`);
+  } else if (data.type === "token") {
+    current.el.textContent += data.text;
+    current.text += data.text;
+    chat.scrollTop = chat.scrollHeight;
+  } else if (data.type === "done") {
+    current.el.classList.remove("thinking");
+    history.push({ role: "assistant", content: current.text.trim() });
+    finish();
+  } else if (data.type === "error") {
+    current?.el.classList.remove("thinking");
+    if (current) { current.el.classList.add("err"); current.el.textContent = "Error: " + data.text; }
+    setStatus("Something went wrong. Try the lighter model, or reload the page.");
+    finish();
+  }
+};
+
+function setStatus(t) { $("statusText").textContent = t; }
+function finish() { busy = false; current = null; send.disabled = false; input.focus(); }
+function bubble(cls, text) {
+  $("empty")?.remove();
+  const el = document.createElement("div");
+  el.className = "msg " + cls;
+  el.textContent = text;
+  chat.appendChild(el);
+  chat.scrollTop = chat.scrollHeight;
+  return el;
+}
+
+function ask(text) {
+  text = text.trim();
+  if (!text || busy) return;
+  busy = true; send.disabled = true;
+  input.value = ""; input.style.height = "";
+  bubble("user", text);
+  history.push({ role: "user", content: text });
+  current = { el: bubble("ai thinking", ""), text: "" };
+  worker.postMessage({
+    type: "chat",
+    model: model.value,
+    messages: [{ role: "system", content: SYSTEM }, ...history.slice(-12)],
+  });
+}
+
+$("form").addEventListener("submit", (e) => { e.preventDefault(); ask(input.value); });
+input.addEventListener("keydown", (e) => {
+  if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); ask(input.value); }
+});
+input.addEventListener("input", () => {
+  input.style.height = "auto";
+  input.style.height = input.scrollHeight + "px";
+});
+document.querySelectorAll(".chips button").forEach((b) => b.addEventListener("click", () => ask(b.textContent)));
+model.addEventListener("change", () => {
+  try { localStorage.setItem("jj-model", model.value); } catch {}
+  setStatus("Model changed. It loads on your next message.");
+});
+$("new").addEventListener("click", () => {
+  if (busy) return;
+  history = [];
+  chat.innerHTML = "";
+  bubble("ai", "New chat started. What's on your mind?");
+});
+</script>
+</body>
+</html>
