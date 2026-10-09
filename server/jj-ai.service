@@ -1,0 +1,20 @@
+# systemd service so JJ AI starts automatically on the Raspberry Pi.
+# Install:
+#   sudo cp jj-ai.service /etc/systemd/system/
+#   sudo systemctl enable --now jj-ai
+# Logs:
+#   journalctl -u jj-ai -f
+[Unit]
+Description=JJ AI server
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=pi
+WorkingDirectory=/home/pi/JJ-AI/server
+Environment=JJ_MODEL_ID=Qwen/Qwen2.5-0.5B-Instruct
+ExecStart=/home/pi/JJ-AI/server/.venv/bin/uvicorn app:app --host 0.0.0.0 --port 8000
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
