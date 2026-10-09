@@ -87,5 +87,5 @@ Tap ⚙️ in the app to set the server URL (default `http://raspberrypi.local:8
 
 - [ ] Streaming replies (word by word)
 - [ ] Faster Pi inference with a quantized GGUF model via llama.cpp
-- [ ] Fine-tune the model on JJ's own data (LoRA)
+- [ ] Fine-tune the model on JJ's own data (LoRA): see [`training/`](training/)
 - [ ] Access from outside the home network (e.g. Tailscale)
